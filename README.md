@@ -14,7 +14,7 @@ The subfolders will be:
 ## Programming Assignment #1
 
 For this assignment, we were expected to write a program which solves and adds onto one of the two programming
-exercises listed in Sutton and Barto chapter 2. I decided to work with 10-armed non-stationary bandit problem
+exercises listed in Sutton and Barto chapter two, question 2.5. I decided to work with 10-armed non-stationary bandit problem
 i.e. the rewards are not discretely defined. 
 
 To run the environment, create a virtual environment and installing the required packages using pip.
