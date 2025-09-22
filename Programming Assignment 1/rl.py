@@ -3,13 +3,14 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 
-# --- 1. The Environment ---
+
 class NonstationaryBandit:
     """
     A class for the 10-armed nonstationary bandit problem.
     The true action values (q*) are initialized to zero and then take an
     independent random walk on each step.
     """
+
     def __init__(self, k=10, walk_mean=0.0, walk_std=0.01, reward_noise_std=1.0):
         self.k = k
         self.walk_mean = walk_mean
@@ -28,24 +29,29 @@ class NonstationaryBandit:
 
 
 
-# --- 2. The Learning Agent ---
 class Agent:
     """
     An epsilon-greedy agent that can use either sample-average or constant
     step-size update rules.
     """
+
     def __init__(self, k, epsilon, alpha=None):
         self.k = k
         self.epsilon = epsilon
-        self.alpha = alpha  # If alpha is None, use sample-average method
+
+        # If alpha is None, use sample-average method
+        self.alpha = alpha  
         self.q_estimates = np.zeros(k)
         self.action_counts = np.zeros(k, dtype=int)
 
     def select_action(self):
+        # Explore
         if np.random.random() < self.epsilon:
-            return np.random.randint(self.k)  # Explore
+            return np.random.randint(self.k) 
+        
+        # Exploit
         else:
-            return np.argmax(self.q_estimates) # Exploit
+            return np.argmax(self.q_estimates)
 
     def update(self, action, reward):
         self.action_counts[action] += 1
@@ -61,9 +67,6 @@ class Agent:
         self.q_estimates[action] += step_size * error
 
 
-
-
-# --- 3. The Experiment ---
 def run_experiment(num_runs=2000, num_steps=10000):
     k = 10
     epsilon = 0.1
@@ -82,6 +85,7 @@ def run_experiment(num_runs=2000, num_steps=10000):
     
     for name, config in agent_configs.items():
         print(f"Running agent: {name}")
+
         for run in tqdm(range(num_runs)):
             bandit = NonstationaryBandit(k=k)
             agent = Agent(k=k, epsilon=epsilon, alpha=config["alpha"])
@@ -97,6 +101,7 @@ def run_experiment(num_runs=2000, num_steps=10000):
                 if action == optimal_action:
                     results[name]['optimal_actions'][run, step] = 1
     
+
     # Average results over all runs
     avg_rewards = {name: np.mean(data['rewards'], axis=0) for name, data in results.items()}
     avg_optimal_actions = {name: np.mean(data['optimal_actions'], axis=0) for name, data in results.items()}
@@ -106,7 +111,6 @@ def run_experiment(num_runs=2000, num_steps=10000):
 
 
 
-# --- 4. Plotting the Results ---
 if __name__ == '__main__':
     avg_rewards, avg_optimal_actions = run_experiment()
 
@@ -124,7 +128,7 @@ if __name__ == '__main__':
     # Plot % Optimal Action
     plt.figure(figsize=(12, 6))
     for name, optimal_actions in avg_optimal_actions.items():
-        plt.plot(optimal_actions * 100, label=f'{name}') # Convert to percentage
+        plt.plot(optimal_actions * 100, label=f'{name}') 
     plt.xlabel("Steps")
     plt.ylabel("% Optimal Action")
     plt.title("% Optimal Action on Nonstationary 10-Armed Bandit")
