@@ -25,9 +25,8 @@ pip install -r requirements.txt
 python rl.py
 ~~~
 
-And running this block will define the environment, agent, and run the experiment 2000 times for 10000 timesteps each.
-One novel idea in this experiment is to compare two different styles of updating the action's reward estimates, using
-a defined alpha value or taking the average of all actions at any time step. 
+And running this block will define the environment, agent, and run the experiment 2000 times for 10000 timesteps each. We compare two different styles of updating the action's reward estimates, using
+a defined alpha value or taking the average of all actions at any time step. One novel idea, done 200 times for 1000 time steps each (due to time constraints), is add a volatile environment to see how alpha values need to be changed in such scenarios.
 
-A successful run of the program will generate two graphs which shows us a direct comparative example of what strategy
-yeilds higher rewards and which give us higher chance of optimal action selection.
+A successful run of the program will generate three graphs which shows us a direct comparative example of what strategy
+yeilds higher rewards and which give us higher chance of optimal action selection. 
