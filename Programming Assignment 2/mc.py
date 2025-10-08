@@ -26,7 +26,7 @@ class Racetrack:
 
         # Define the 9 possible actions (3x3 grid of velocity changes)
         self.actions = [(dv_y, dv_x) for dv_y in [-1, 0, 1]
-                         for dv_x in [-1, 0, 1]]
+                        for dv_x in [-1, 0, 1]]
 
     def parse_layout(self):
         # Convert the string layout to a numerical grid
@@ -58,19 +58,21 @@ class Racetrack:
         # Clamp velocity components to be between 0 and 4 (inclusive)
         self.velocity[0] = max(0, min(4, self.velocity[0]))
         self.velocity[1] = max(0, min(4, self.velocity[1]))
-
-        # Check for the special case where velocity is (0,0) AND not pon the start line
-        # This is not allowed as per the problem description
+        
+        # Check for the special case where velocity is (0,0) AND not on the start line
         current_pos_tuple = tuple(self.position)
         if self.velocity == [0, 0] and current_pos_tuple not in self.start_positions:
-            # This action is illegal, so we revert to a minimal forward velocity
-
-            self.velocity = [0, 1]
-
+            # According to the book, velocity components cannot both be zero, except at the start.
+            # To prevent getting stuck, we can give it a minimal velocity.
+            # However, a well-trained agent should avoid this state.
+            # Forcing a minimal velocity might interfere with learning.
+            # A crash is a more appropriate outcome for this illegal state.
+            return self.handle_crash()
 
         # Project the path and check for collisions
         old_pos = self.position
-        new_pos = [old_pos[0] - self.velocity[0], old_pos[1] + self.velocity[1]]
+        new_pos = [old_pos[0] - self.velocity[0],
+                   old_pos[1] + self.velocity[1]]
 
         # The path is a line from old_pos to new_pos. We check all grid cells
         # on this line for collisions
@@ -86,7 +88,8 @@ class Racetrack:
             # Check if the car hits the finish line
             if self.grid[y, x] == 3:
                 self.position = [y, x]
-                return tuple(self.position + self.velocity), 0, True # Reward is 0 on finishing
+                # Reward is 0 on finishing
+                return tuple(self.position + self.velocity), 0, True
 
             # Check if the car hits a wall.
             if self.grid[y, x] == 0:
@@ -97,7 +100,7 @@ class Racetrack:
         state = tuple(self.position + self.velocity)
 
         # Standard penalty for each step
-        reward = -1 
+        reward = -1
         done = False
         return state, reward, done
 
@@ -112,15 +115,17 @@ class Racetrack:
 
 # --- 2. The Monte Carlo Agent ---
 
+
 class MCAgent:
     """
     Implements an On-Policy First-Visit Monte Carlo Control agent with an
     epsilon-greedy policy.
     """
+
     def __init__(self, actions, epsilon=0.1, gamma=1.0):
         self.actions = actions
         self.epsilon = epsilon
-        self.gamma = gamma 
+        self.gamma = gamma
 
         # The agent's "brain"
         # Q(s,a): Expected return for state-action pair
@@ -144,14 +149,7 @@ class MCAgent:
             # Generate one full episode following the current policy
             episode = []
             state = env.reset()
-            done = False
-            # while not done:
-            #     action_idx = self.get_action(state)
-            #     action = self.actions[action_idx]
-            #     next_state, reward, done = env.step(action)
-            #     episode.append((state, action_idx, reward))
-            #     state = next_state
-
+            
             for _ in range(max_steps_per_episode):
                 action_idx = self.get_action(state)
                 action = self.actions[action_idx]
@@ -162,7 +160,7 @@ class MCAgent:
                     break
 
             # Learn from the episode using first-visit Monte Carlo
-            G = 0 
+            G = 0
             visited_state_actions = set()
 
             # Iterate backward through the episode's history
@@ -176,28 +174,50 @@ class MCAgent:
                     self.N[state][action_idx] += 1
                     # Update Q by taking the average of all returns seen so far
                     alpha = 1 / self.N[state][action_idx]
-                    self.Q[state][action_idx] += alpha * (G - self.Q[state][action_idx])
+                    self.Q[state][action_idx] += alpha * \
+                        (G - self.Q[state][action_idx])
                     visited_state_actions.add(state_action)
 
 # --- 3. Experiment and Visualization ---
 
+# MODIFIED FUNCTION
 def generate_trajectory(agent, env, start_pos):
     """
     Generates a single trajectory following the agent's optimal policy.
     Noise is turned off for this demonstration.
+    This function now correctly terminates the trajectory if a crash occurs.
     """
     env.position = list(start_pos)
     env.velocity = [0, 0]
     state = tuple(env.position + env.velocity)
 
-    trajectory = [env.position]
+    # The trajectory stores (y, x) position tuples
+    trajectory = [state[:2]]
     done = False
+    
     while not done:
         # Greedily select the best action (no exploration, no noise)
         action_idx = np.argmax(agent.Q[state])
         action = agent.actions[action_idx]
-        state, _, done = env.step(action, noise=False)
-        trajectory.append(env.position)
+
+        # Take a step in the environment
+        next_state, _, done = env.step(action, noise=False)
+
+        # The car's position after the step
+        next_pos = next_state[:2]
+
+        # Check if the car was reset to a starting position due to a crash.
+        # This is inferred if the new position is a start position, but the old one wasn't.
+        # This prevents stopping on the very first move if the car stays put.
+        if next_pos in env.start_positions and state[:2] not in env.start_positions:
+            # A crash occurred. We end this trajectory for visualization purposes.
+            # We do *not* append the new starting line position.
+            print("Trajectory crashed, ending visualization.")
+            break
+
+        # Update state and record the new position in the trajectory
+        state = next_state
+        trajectory.append(next_pos)
 
         # Add a safeguard against infinite loops for undertrained agents.
         if len(trajectory) > 200:
@@ -205,6 +225,7 @@ def generate_trajectory(agent, env, start_pos):
             break
 
     return np.array(trajectory)
+
 
 def plot_racetrack(track_layout, trajectories, labels, title):
     """
@@ -214,97 +235,158 @@ def plot_racetrack(track_layout, trajectories, labels, title):
     track_map = {'#': 0, 'O': 1, 'S': 2, 'F': 3}
     grid = np.vectorize(track_map.get)(track)
 
-    # Create a colormap for visualization.
-    cmap = plt.cm.get_cmap('bone_r', 4)
+    # Create figure and axis
+    _, ax = plt.subplots(figsize=(12, 12))
 
-    plt.figure(figsize=(10, 10))
-    plt.imshow(grid, cmap=cmap, interpolation='nearest')
+    # Create a custom colormap with distinct colors for each track element
+    colors_list = ['black', 'lightgray', 'green', 'red']
+    cmap = plt.matplotlib.colors.ListedColormap(colors_list)
+
+    # Display the track with proper color bounds
+    im = ax.imshow(grid, cmap=cmap, interpolation='nearest',
+                   vmin=-0.5, vmax=3.5)
 
     # Draw the trajectories
-    colors = ['r', 'b']
+    traj_colors = ['yellow', 'cyan']
     linestyles = ['-', '--']
+
     for i, (traj_set, label) in enumerate(zip(trajectories, labels)):
         for j, traj in enumerate(traj_set):
+            if traj.shape[0] < 2: continue # Skip empty or single-point trajectories
             # Only add a label to the first trajectory of each agent for a clean legend
             legend_label = label if j == 0 else None
-            plt.plot(traj[:, 1], traj[:, 0], color=colors[i], linestyle=linestyles[i],
-                     linewidth=2, label=legend_label)
+            ax.plot(traj[:, 1], traj[:, 0], color=traj_colors[i],
+                    linestyle=linestyles[i], linewidth=2.0, label=legend_label,
+                    alpha=0.9, marker='o', markersize=3)
 
-    # Add grid, legend, and title for a professional-looking plot
-    ax = plt.gca()
-    ax.grid(which='major', axis='both', linestyle='-', color='k', linewidth=0.5, alpha=0.3)
-    ax.set_xticks(np.arange(-.5, grid.shape[1], 1), minor=True)
-    ax.set_yticks(np.arange(-.5, grid.shape[0], 1), minor=True)
-    ax.grid(which='minor', axis='both', linestyle='-', color='k', linewidth=0.5, alpha=0.1)
-    ax.set_xticklabels([])
-    ax.set_yticklabels([])
-    plt.legend()
-    plt.title(title, fontsize=16)
+    # Add grid lines
+    ax.set_xticks(np.arange(-0.5, grid.shape[1], 1), minor=True)
+    ax.set_yticks(np.arange(-0.5, grid.shape[0], 1), minor=True)
+    ax.grid(which='minor', color='gray',
+            linestyle='-', linewidth=0.3, alpha=0.5)
+    ax.tick_params(which='minor', size=0)
+    ax.tick_params(which='major', size=0, labelbottom=False, labelleft=False)
+
+    # Add legend with better positioning
+    ax.legend(loc='upper left', fontsize=10)
+
+    # Add title
+    ax.set_title(title, fontsize=16, pad=20)
+
+    # Add a color bar to show what each color represents
+    boundaries = [-0.5, 0.5, 1.5, 2.5, 3.5]
+    norm = plt.matplotlib.colors.BoundaryNorm(boundaries, cmap.N)
+    cbar = plt.colorbar(im, ax=ax, boundaries=boundaries,
+                        norm=norm, ticks=[0, 1, 2, 3], shrink=0.7)
+    cbar.ax.set_yticklabels(['Wall', 'Track', 'Start', 'Finish'])
+
+    plt.tight_layout()
     plt.show()
 
 
 if __name__ == '__main__':
 
-    TRACK_LAYOUT_B = [
-        "##################################",
-        "#############################FF###",
-        "############################F#####",
-        "###########################F######",
-        "##########################F#######",
-        "#########################F########",
-        "########################F#########",
-        "#######################F##########",
-        "######################F###########",
-        "#####################F############",
-        "####################F#############",
-        "###################F##############",
-        "##################F###############",
-        "#################F################",
-        "################F#################",
-        "###############O##################",
-        "##############OO##################",
-        "#############OOO##################",
-        "############OOOO##################",
-        "###########OOOOO##################",
-        "##########OOOOOO##################",
-        "#########OOOOOOO##################",
-        "########OOOOOOOO##################",
-        "#######OOOOOOOOO##################",
-        "######OOOOOOOOOO##################",
-        "#####OOOOOOOOOOO##################",
-        "####OOOOOOOOOOOO##################",
-        "###OOOOOOOOOOOOO##################",
-        "##OOOOOOOOOOOOOO##################",
-        "#OOOOOOOOOOOOOOO##################",
-        "#OOOOOOOOOOOOOOO##################",
-        "OOOOOOOOOOOOOOOO##################",
-        "SSSSSSSSSSSSSSSS##################",
+    # --- MODIFIED TRACK LAYOUTS ---
+    # These tracks are now more faithful representations of Figure 5.5
+
+    TRACK_A = [
+        "#################",
+        "####FFFF#########",
+        "###OOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOF###########",
+        "##OOOOOOOOOOOOO##",
+        "##OOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "#OOOOOOOOOOOOOO##",
+        "##OOOOOOOOOOOOO##",
+        "###OOOOOOOOOOOO##",
+        "####SSSSSSSSS####",
+        "#################",
     ]
 
+    TRACK_B = [
+        "###################################",
+        "##############################FFFF#",
+        "#############################OOF###",
+        "############################OOOF###",
+        "###########################OOOO####",
+        "##########################OOOOO####",
+        "#########################OOOOOO####",
+        "########################OOOOOOO####",
+        "#######################OOOOOOOO####",
+        "######################OOOOOOOOO####",
+        "#####################OOOOOOOOOO####",
+        "####################OOOOOOOOOOO####",
+        "###################OOOOOOOOOOOO####",
+        "#################OOOOOOOOOOOOOO####",
+        "###############OOOOOOOOOOOOOOOO####",
+        "##############OOOOOOOOOOOOOOOOO####",
+        "#############OOOOOOOOOOOOOOOOOO####",
+        "############OOOOOOOOOOOOOOOOOOO####",
+        "###########OOOOOOOOOOOOOOOOOOOO####",
+        "##########OOOOOOOOOOOOOOOOOOOOO####",
+        "#########OOOOOOOOOOOOOOOOOOOOOO####",
+        "########OOOOOOOOOOOOOOOOOOOOOOO####",
+        "#######OOOOOOOOOOOOOOOOOOOOOOOO####",
+        "######OOOOOOOOOOOOOOOOOOOOOOOOO####",
+        "#####OOOOOOOOOOOOOOOOOOOOOOOOOO####",
+        "####OOOOOOOOOOOOOOOOOOOOOOOOOOO####",
+        "###OOOOOOOOOOOOOOOOOOOOOOOOOOOO####",
+        "##OOOOOOOOOOOOOOOOOOOOOOOOOOOOO####",
+        "#OOOOOOOOOOOOOOOOOOOOOOOOOOOOOO####",
+        "#SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS####",
+        "##################################",
+    ]
+    
+    # You can switch between TRACK_A and TRACK_B here
+    TRACK_LAYOUT = TRACK_B
+
     # --- Run Experiment ---
-    NUM_EPISODES = 2000
+    # Increase episodes for better convergence on more complex tracks
+    NUM_EPISODES = 20000
 
     # 1. Train the "Daredevil" Agent (original problem)
     print("--- Training Daredevil Agent (Standard Penalty) ---")
-    daredevil_env = Racetrack(TRACK_LAYOUT_B, crash_penalty=0)
+    daredevil_env = Racetrack(TRACK_LAYOUT, crash_penalty=0)
     daredevil_agent = MCAgent(actions=daredevil_env.actions)
     daredevil_agent.train(daredevil_env, NUM_EPISODES)
 
     # 2. Train the "Cautious" Agent (additional question)
     print("\n--- Training Cautious Agent (High Crash Penalty) ---")
-    cautious_env = Racetrack(TRACK_LAYOUT_B, crash_penalty=-100)
+    cautious_env = Racetrack(TRACK_LAYOUT, crash_penalty=-10) # A penalty of -10 is sufficient
     cautious_agent = MCAgent(actions=cautious_env.actions)
     cautious_agent.train(cautious_env, NUM_EPISODES)
 
     # --- Generate and Plot Trajectories ---
-    start_positions_to_test = cautious_env.start_positions[::4]
+    # Test from a few different starting positions to see varied paths
+    start_positions_to_test = cautious_env.start_positions[::6] # Pick every 6th start pos
 
-    daredevil_trajectories = [generate_trajectory(daredevil_agent, daredevil_env, pos) for pos in start_positions_to_test]
-    cautious_trajectories = [generate_trajectory(cautious_agent, cautious_env, pos) for pos in start_positions_to_test]
+    daredevil_trajectories = [generate_trajectory(
+        daredevil_agent, daredevil_env, pos) for pos in start_positions_to_test]
+    cautious_trajectories = [generate_trajectory(
+        cautious_agent, cautious_env, pos) for pos in start_positions_to_test]
 
     plot_racetrack(
-        TRACK_LAYOUT_B,
+        TRACK_LAYOUT,
         [daredevil_trajectories, cautious_trajectories],
-        labels=["Daredevil Policy (Crash Penalty=0)", "Cautious Policy (Crash Penalty=-100)"],
+        labels=["Daredevil Policy (Crash Penalty=0)",
+                "Cautious Policy (Crash Penalty=-10)"],
         title="Comparison of Optimal Policies under Different Crash Penalties"
     )
