@@ -113,9 +113,9 @@ class Racetrack:
         reward = -1 + self.crash_penalty
         return new_state, reward, done
 
+
+
 # --- 2. The Monte Carlo Agent ---
-
-
 class MCAgent:
     """
     Implements an On-Policy First-Visit Monte Carlo Control agent with an
@@ -178,9 +178,9 @@ class MCAgent:
                         (G - self.Q[state][action_idx])
                     visited_state_actions.add(state_action)
 
-# --- 3. Experiment and Visualization ---
 
-# MODIFIED FUNCTION
+
+# --- 3. Experiment and Visualization ---
 def generate_trajectory(agent, env, start_pos):
     """
     Generates a single trajectory following the agent's optimal policy.
@@ -231,6 +231,7 @@ def plot_racetrack(track_layout, trajectories, labels, title):
     """
     Visualizes the racetrack and the optimal trajectories
     """
+
     track = np.array([list(row) for row in track_layout])
     track_map = {'#': 0, 'O': 1, 'S': 2, 'F': 3}
     grid = np.vectorize(track_map.get)(track)
@@ -284,10 +285,8 @@ def plot_racetrack(track_layout, trajectories, labels, title):
     plt.show()
 
 
-if __name__ == '__main__':
 
-    # --- MODIFIED TRACK LAYOUTS ---
-    # These tracks are now more faithful representations of Figure 5.5
+if __name__ == '__main__':
 
     TRACK_A = [
         "#################",
@@ -321,9 +320,27 @@ if __name__ == '__main__':
         "#################",
     ]
 
+    TRACK_A_EDITED = [
+        "################################",
+        "#SSSSSSOOOOOOOOOOOOOOOOOOOOOO###",
+        "#SSSSSSOOOOOOOOOOOOOOOOOOOOOO###",
+        "#SSSSSSOOOOOOOOOOOOOOOOO########",
+        "##########OOOOOOOOOOOOOOO#######",
+        "##########OOOOOOOOOOOOOOO#######",
+        "###############OOOOOOOOOOOOOOO##",
+        "###############OOOOOOOOOOOOOOO##",
+        "############OOOOOOOOOOOOOOOOOO##",
+        "############OOOOOOOOOOOOOOOOOO##",
+        "######OOOOOOOOOOOOOOOOO#########",
+        "######OOOOOOOOOOOOOOOOO#########",
+        "###OOOOOOOOOOOOOOOOOOOFFFFFF####",
+        "###OOOOOOOOOOOOOOOOOOOFFFFFF####",
+        "################################",
+    ]
+
     TRACK_B = [
         "###################################",
-        "##############################FFFF#",
+        "#############################FFFFF#",
         "#############################OOF###",
         "############################OOOF###",
         "###########################OOOO####",
@@ -352,7 +369,7 @@ if __name__ == '__main__':
         "##OOOOOOOOOOOOOOOOOOOOOOOOOOOOO####",
         "#OOOOOOOOOOOOOOOOOOOOOOOOOOOOOO####",
         "#SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS####",
-        "##################################",
+        "###################################",
     ]
     
     # You can switch between TRACK_A and TRACK_B here
