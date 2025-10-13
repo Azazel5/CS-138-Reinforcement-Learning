@@ -31,6 +31,7 @@ class Racetrack:
     def parse_layout(self):
         # Convert the string layout to a numerical grid
         # 0: Wall, 1: Track, 2: Start, 3: Finish
+        
         self.track = np.array([list(row) for row in self.track_layout])
         track_map = {'#': 0, 'O': 1, 'S': 2, 'F': 3}
         self.grid = np.vectorize(track_map.get)(self.track)
@@ -62,11 +63,12 @@ class Racetrack:
         # Check for the special case where velocity is (0,0) AND not on the start line
         current_pos_tuple = tuple(self.position)
         if self.velocity == [0, 0] and current_pos_tuple not in self.start_positions:
-            # According to the book, velocity components cannot both be zero, except at the start.
-            # To prevent getting stuck, we can give it a minimal velocity.
-            # However, a well-trained agent should avoid this state.
-            # Forcing a minimal velocity might interfere with learning.
-            # A crash is a more appropriate outcome for this illegal state.
+            # According to the book, velocity components cannot both be zero, except at the start
+            # To prevent getting stuck, we can give it a minimal velocity
+            # However, a well-trained agent should avoid this state
+            # Forcing a minimal velocity might interfere with learning
+            # A crash is a more appropriate outcome for this illegal state
+
             return self.handle_crash()
 
         # Project the path and check for collisions
@@ -105,11 +107,11 @@ class Racetrack:
         return state, reward, done
 
     def handle_crash(self):
-        # Reset the car to a random start position with zero velocity.
+        # Reset the car to a random start position with zero velocity
         new_state = self.reset()
-        # The episode continues after a crash.
+        # The episode continues after a crash
         done = False
-        # The reward is -1 plus any additional crash penalty.
+        # The reward is -1 plus any additional crash penalty
         reward = -1 + self.crash_penalty
         return new_state, reward, done
 
@@ -187,6 +189,7 @@ def generate_trajectory(agent, env, start_pos):
     Noise is turned off for this demonstration.
     This function now correctly terminates the trajectory if a crash occurs.
     """
+
     env.position = list(start_pos)
     env.velocity = [0, 0]
     state = tuple(env.position + env.velocity)
@@ -206,12 +209,13 @@ def generate_trajectory(agent, env, start_pos):
         # The car's position after the step
         next_pos = next_state[:2]
 
-        # Check if the car was reset to a starting position due to a crash.
-        # This is inferred if the new position is a start position, but the old one wasn't.
-        # This prevents stopping on the very first move if the car stays put.
+        # Check if the car was reset to a starting position due to a crash
+        # This is inferred if the new position is a start position, but the old one wasn't
+        # This prevents stopping on the very first move if the car stays put
         if next_pos in env.start_positions and state[:2] not in env.start_positions:
             # A crash occurred. We end this trajectory for visualization purposes.
-            # We do *not* append the new starting line position.
+            # We do *not* append the new starting line position
+
             print("Trajectory crashed, ending visualization.")
             break
 
@@ -219,7 +223,7 @@ def generate_trajectory(agent, env, start_pos):
         state = next_state
         trajectory.append(next_pos)
 
-        # Add a safeguard against infinite loops for undertrained agents.
+        # Add a safeguard against infinite loops for undertrained agents
         if len(trajectory) > 200:
             print("Trajectory too long, breaking.")
             break
@@ -371,13 +375,72 @@ if __name__ == '__main__':
         "#SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS####",
         "###################################",
     ]
+
+    TRACK_A_EXACT = [
+        "#################",
+        "####OOOOOOOOOOOF#",
+        "###OOOOOOOOOOOOF#",
+        "##OOOOOOOOOOOOOF#",
+        "#OOOOOOOOOOOOOOF#",
+        "#OOOOOOOOOOOOOOF#",
+        "#OOOOOOOOOOOOOOO#",
+        "##OOOOOOOOOOOOOO#",
+        "##OOOOOOOOOOOOOO#",
+        "##OOOOOOOOOO#####", 
+        "##OOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "#OOOOOOOOO#######",
+        "#OOOOOOOOO#######",
+        "#OOOOOOOOO#######",
+        "#OOOOOOOOO#######",
+        "#OOOOOOOOO#######",
+        "#OOOOOOOOO#######",
+        "##OOOOOOOO#######",
+        "###OOOOOOO#######",
+        "####OOOOOO#######",
+        "####SSSSSS#######",
+        "#################"
+    ]
+
+    TRACK_B_EXACT = [
+        "##########OOOOOOOOOOOOOF",
+        "###########OOOOOOOOOOOOF",
+        "############OOOOOOOOOOOF",
+        "#############OOOOOOOOOOF",
+        "#############OOOOOOOOOOF",
+        "#############OOOOOOOOOOF",
+        "#############OOOOOOOOOOF",
+        "#############OOOOOOOOOOF",
+        "#############OOOOOOOOOOF",
+        "############OOOOOOOOOO##",
+        "###########OOOOOOOOOO###",
+        "##########OOOOOOOOOOO###",
+        "#########OOOOOOOOOOOO###",
+        "########OOOOOOOOOOOOO###",
+        "#######OOOOOOOOOOOOOO###",
+        "######OOOOOOOOOOOOOOO###",
+        "#####OOOOOOOOOOOOOOOO###",
+        "####OOOOOOOOOOOOOOOOO###",
+        "###OOOOOOOOOOOOOOOOOO###",
+        "##OOOOOOOOOOOOOOOOOOO###",
+        "#OOOOOOOOOOOOOOOOOOOO###",
+        "OOOOOOOOOOOOOOOOOOOOO###",
+        "OOOOOOOOOOOOOOOOOOOOO###",
+        "SSSSSSSSSSSSSSSSSSSSS###"
+    ]
     
     # You can switch between TRACK_A and TRACK_B here
-    TRACK_LAYOUT = TRACK_B
+    TRACK_LAYOUT = TRACK_B_EXACT
 
     # --- Run Experiment ---
     # Increase episodes for better convergence on more complex tracks
-    NUM_EPISODES = 20000
+    NUM_EPISODES = 50000
 
     # 1. Train the "Daredevil" Agent (original problem)
     print("--- Training Daredevil Agent (Standard Penalty) ---")
