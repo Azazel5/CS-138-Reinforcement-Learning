@@ -42,7 +42,30 @@ The code can be run by:
 1. Cloning the repository
 2. Navigating to the Programming Assignment 2 folder
 3. Creating a python virtual environment and activating it
-4. Installing the reqiorements
+4. Installing the requirements
+5. Running the python file
+
+~~~
+git clone https://github.com/Azazel5/CS-138-Reinforcement-Learning.git
+cd Programming Assignment 2
+python -m venv env 
+source env/bin/activate
+pip install -r requirements.txt
+python rl.py
+~~~
+
+
+## Programming Assignment #3
+
+In this assignment, we did S&B exercise 8.8, where we replicated figure 8.8 first and then experimented with N value
+to see if it would change anything. Spoiler alert: it does!
+
+The code can be run by: 
+
+1. Cloning the repository
+2. Navigating to the Programming Assignment 3 folder
+3. Creating a python virtual environment and activating it
+4. Installing the requirements
 5. Running the python file
 
 ~~~
